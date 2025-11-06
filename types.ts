@@ -69,3 +69,5 @@ export interface PreEditScanItem {
   photo: string;
   sfx: string | null;
 }
+
+export type ScriptingSubStep = 'hooks' | 'outline' | 'script';
