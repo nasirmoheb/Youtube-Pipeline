@@ -41,6 +41,7 @@ const App: React.FC = () => {
     const [extractedPrompts, setExtractedPrompts] = useState<{ [key: string]: ExtractedPrompt[] }>(loadInitialState().extractedPrompts);
     const [images, setImages] = useState<{ [style: string]: { [beat: string]: string } }>(loadInitialState().images);
     const [imageSelection, setImageSelection] = useState<ImageSelection>(loadInitialState().imageSelection);
+    const [flaggedImages, setFlaggedImages] = useState<{ [beat: string]: Set<string> }>(loadInitialState().flaggedImages || {});
     const [checkedImages, setCheckedImages] = useState<Set<string>>(loadInitialState().checkedImages);
     const [svgConversionStatus, setSvgConversionStatus] = useState<{ [beat_number: string]: SvgConversionStatus }>(loadInitialState().svgConversionStatus);
     const [transcriptionData, setTranscriptionData] = useState<TranscriptionWord[]>(loadInitialState().transcriptionData);
@@ -56,22 +57,28 @@ const App: React.FC = () => {
 
     // --- State Persistence Effect ---
     useEffect(() => {
+        const flaggedImagesToSave: {[key: string]: string[]} = {};
+        for (const beat in flaggedImages) {
+            flaggedImagesToSave[beat] = Array.from(flaggedImages[beat]);
+        }
+        
         const stateToSave = {
             currentStep, highestCompletedStep, metadata, bookContent, summary,
             scriptData, scriptingSubStep, voiceoverSegments, beats, storyboards,
             extractedPrompts, images, imageSelection, svgConversionStatus,
             transcriptionData, preEditScanData, combinedVoiceoverUrl,
             checkedImages: Array.from(checkedImages),
+            flaggedImages: flaggedImagesToSave,
         };
         localStorage.setItem('aiVideoPipelineProject', JSON.stringify(stateToSave));
     }, [
         currentStep, highestCompletedStep, metadata, bookContent, summary,
         scriptData, scriptingSubStep, voiceoverSegments, beats, storyboards,
         extractedPrompts, images, imageSelection, svgConversionStatus,
-        transcriptionData, preEditScanData, combinedVoiceoverUrl, checkedImages
+        transcriptionData, preEditScanData, combinedVoiceoverUrl, checkedImages, flaggedImages
     ]);
 
-    const handleNext = () => {
+    const advanceStep = () => {
         const nextStep = currentStep + 1;
         if (nextStep <= STEPS.length) {
             setCurrentStep(nextStep);
@@ -81,6 +88,12 @@ const App: React.FC = () => {
         }
     };
     
+    const goBack = () => {
+        if (currentStep > 1) {
+            setCurrentStep(currentStep - 1);
+        }
+    };
+
     const handleStepClick = (step: number) => {
       if (step <= highestCompletedStep) {
         setCurrentStep(step);
@@ -121,7 +134,6 @@ const App: React.FC = () => {
     
     const handleSelectHook = (hook: string) => {
         setScriptData(prev => ({ ...prev, selectedHook: hook }));
-        setScriptingSubStep('outline');
     };
 
     const handleGenerateOutline = useCallback(async () => {
@@ -284,6 +296,27 @@ const App: React.FC = () => {
         }));
     };
 
+    const handleImageFlagToggle = (beat_number: string, imageUrl: string) => {
+        setFlaggedImages(prev => {
+            const newFlags = { ...prev };
+            const beatFlags = new Set(newFlags[beat_number]);
+    
+            if (beatFlags.has(imageUrl)) {
+                beatFlags.delete(imageUrl);
+            } else {
+                beatFlags.add(imageUrl);
+            }
+    
+            if (beatFlags.size === 0) {
+                delete newFlags[beat_number];
+            } else {
+                newFlags[beat_number] = beatFlags;
+            }
+    
+            return newFlags;
+        });
+    };
+
     // SVG Conversion
     const handleConvertImageToSvg = useCallback(async (beat_number: string, imageUrl: string) => {
         setSvgConversionStatus(prev => ({
@@ -325,6 +358,150 @@ const App: React.FC = () => {
         setPreEditScanData(result);
         setIsLoading(false);
     }, [storyboards, transcriptionData, imageSelection]);
+    
+    // --- Step Completion Logic ---
+    const isStepComplete = () => {
+        switch (currentStep) {
+            case 1: return !!(metadata.title && metadata.projectPath);
+            case 2: return summary.length > 0;
+            case 3: return scriptData.fullScript.length > 0;
+            case 4: return voiceoverSegments.length > 0 && voiceoverSegments.every(s => s.status === 'complete');
+            case 5: return beats.length > 0;
+            case 6: return Object.values(storyboards).some(s => s.length > 0);
+            case 7: return Object.values(extractedPrompts).some(p => p.length > 0);
+            case 8: return Object.values(images).some(s => Object.keys(s).length > 0);
+            case 9: return Object.keys(imageSelection).length > 0;
+            case 10: return Object.keys(svgConversionStatus).length > 0 && Object.values(svgConversionStatus).every(s => s.status === 'complete');
+            case 11: return transcriptionData.length > 0;
+            case 12: return preEditScanData.length > 0;
+            case 13: return true;
+            default: return false;
+        }
+    };
+    
+    const advanceStepAndTriggerNext = useCallback(() => {
+        const nextStep = currentStep + 1;
+
+        // Trigger generation for the *upcoming* step.
+        // These are fire-and-forget; the user will see the loading state on the next screen.
+        switch (nextStep) {
+            case 2:
+                handleGenerateSummary();
+                break;
+            case 3:
+                handleGenerateHooks();
+                break;
+            case 4:
+                handleGenerateVoiceoverSegments();
+                break;
+            case 5:
+                handleGenerateBeats();
+                break;
+        }
+
+        advanceStep();
+    }, [currentStep, handleGenerateSummary, handleGenerateHooks, handleGenerateVoiceoverSegments, handleGenerateBeats]);
+
+
+    // --- Primary Button Logic ---
+   const getButtonState = () => {
+        if (currentStep >= STEPS.length) {
+            return { text: null, disabled: true, action: () => {} };
+        }
+       
+        let text = `Next: ${STEPS[currentStep]} \u2192`;
+        let action: () => void = advanceStepAndTriggerNext;
+        let disabled = isLoading || isChatLoading || !isStepComplete();
+
+        switch (currentStep) {
+            case 1:
+                disabled = isLoading || isChatLoading || !isStepComplete();
+                break;
+            case 2:
+                if (summary.length === 0) {
+                    text = "Generate Summary";
+                    action = handleGenerateSummary;
+                    disabled = isLoading || isChatLoading;
+                }
+                break;
+            case 3:
+                if (scriptingSubStep === 'hooks') {
+                    if (scriptData.hooks.length === 0) {
+                        text = "Generate Hooks";
+                        action = handleGenerateHooks;
+                        disabled = isLoading || isChatLoading;
+                    } else if (!scriptData.selectedHook) {
+                        text = "Select a Hook to Continue";
+                        disabled = true;
+                    } else {
+                        text = "Proceed to Outline";
+                        action = () => setScriptingSubStep('outline');
+                        disabled = isLoading || isChatLoading;
+                    }
+                } else if (scriptingSubStep === 'outline') {
+                    if (scriptData.outline.length === 0) {
+                        text = "Generate Outline";
+                        action = handleGenerateOutline;
+                        disabled = isLoading || isChatLoading;
+                    } else {
+                        text = "Proceed to Full Script";
+                        action = () => setScriptingSubStep('script');
+                        disabled = isLoading || isChatLoading;
+                    }
+                } else if (scriptingSubStep === 'script') {
+                     if (scriptData.fullScript.length === 0) {
+                        text = "Generate Full Script";
+                        action = handleGenerateFullScript;
+                        disabled = isLoading || isChatLoading;
+                    }
+                }
+                break;
+            case 4:
+                if (voiceoverSegments.length === 0) {
+                    text = "Generate Segments";
+                    action = handleGenerateVoiceoverSegments;
+                    disabled = isLoading || isChatLoading;
+                } else if (!isStepComplete()) {
+                    text = "Finish Generating All Segments";
+                    disabled = true;
+                }
+                break;
+            case 5:
+                if (beats.length === 0) {
+                    text = "Generate Beats";
+                    action = handleGenerateBeats;
+                    disabled = isLoading || isChatLoading;
+                }
+                break;
+            case 11:
+                if (transcriptionData.length === 0) {
+                    text = "Generate Transcription";
+                    action = handleGenerateTranscription;
+                    disabled = isLoading || isChatLoading;
+                }
+                break;
+            case 12:
+                 if (!combinedVoiceoverUrl) {
+                    text = "Combine Audio";
+                    action = handleCombineVoiceovers;
+                    disabled = isLoading || isChatLoading || !voiceoverSegments.every(s => s.status === 'complete');
+                } else if (preEditScanData.length === 0) {
+                    text = "Generate Pre-Edit Scan";
+                    action = handleGeneratePreEditScan;
+                    disabled = isLoading || isChatLoading;
+                } else {
+                    action = advanceStep; // Final step doesn't trigger anything
+                }
+                break;
+            default:
+                action = advanceStep; // Default next action
+                break;
+        }
+
+        return { text, disabled, action };
+   };
+   
+   const buttonState = getButtonState();
 
     // --- RENDER ---
     const renderStepContent = () => {
@@ -350,57 +527,14 @@ const App: React.FC = () => {
             case 6: return <Step6_Storyboard storyboards={storyboards} isGenerating={isLoading} handleGenerateStoryboard={handleGenerateStoryboard} />;
             case 7: return <Step7_Prompts extractedPrompts={extractedPrompts} />;
             case 8: return <Step8_Images images={images} extractedPrompts={extractedPrompts} handleGenerateImages={handleGenerateImages} imageGenerationStatus={imageGenerationStatus} />;
-            case 9: return <Step9_Select beats={beats} images={images} imageSelection={imageSelection} handleImageSelection={handleImageSelection} />;
+            case 9: return <Step9_Select beats={beats} images={images} imageSelection={imageSelection} handleImageSelection={handleImageSelection} flaggedImages={flaggedImages} handleImageFlagToggle={handleImageFlagToggle} />;
             case 10: return <Step10_SvgConvert imageSelection={imageSelection} svgConversionStatus={svgConversionStatus} handleConvertImageToSvg={handleConvertImageToSvg} />;
-            case 11: return <Step11_Transcription transcriptionData={transcriptionData} isGenerating={isLoading} handleGenerateTranscription={handleGenerateTranscription} />;
+            case 11: return <Step11_Transcription transcriptionData={transcriptionData} isGenerating={isLoading} handleGenerateTranscription={handleGenerateTranscription} setTranscriptionData={setTranscriptionData} />;
             case 12: return <Step12_PreEditScan preEditScanData={preEditScanData} />;
             case 13: return <Step13_VideoEdit combinedVoiceoverUrl={combinedVoiceoverUrl} scanData={preEditScanData} />;
             default: return <div>Step not found.</div>;
         }
     };
-    
-    const isStepComplete = () => {
-        switch (currentStep) {
-            case 1: return metadata.title && metadata.projectPath;
-            case 2: return summary.length > 0;
-            case 3: return scriptData.fullScript.length > 0;
-            case 4: return voiceoverSegments.length > 0 && voiceoverSegments.every(s => s.status === 'complete');
-            case 5: return beats.length > 0;
-            case 6: return Object.values(storyboards).some(s => s.length > 0);
-            case 7: return Object.values(extractedPrompts).some(p => p.length > 0);
-            case 8: return Object.values(images).some(s => Object.keys(s).length > 0);
-            case 9: return Object.keys(imageSelection).length > 0;
-            case 10: return Object.keys(svgConversionStatus).length > 0 && Object.values(svgConversionStatus).every(s => s.status === 'complete');
-            case 11: return transcriptionData.length > 0;
-            case 12: return preEditScanData.length > 0;
-            case 13: return true;
-            default: return false;
-        }
-    };
-    
-    const showNextButton = currentStep < STEPS.length;
-    const isNextDisabled = isLoading || isChatLoading || !isStepComplete();
-
-    const getButtonAction = () => {
-        switch (currentStep) {
-            case 2: return handleGenerateSummary;
-            case 3: 
-                if (scriptingSubStep === 'hooks' && scriptData.hooks.length === 0) return handleGenerateHooks;
-                if (scriptingSubStep === 'outline' && scriptData.outline.length === 0) return handleGenerateOutline;
-                if (scriptingSubStep === 'script' && scriptData.fullScript.length === 0) return handleGenerateFullScript;
-                return undefined;
-            case 4: 
-                if (voiceoverSegments.length === 0) return handleGenerateVoiceoverSegments;
-                if (!combinedVoiceoverUrl) return handleCombineVoiceovers;
-                return undefined;
-            case 5: return beats.length === 0 ? handleGenerateBeats : undefined;
-            case 11: return transcriptionData.length === 0 ? handleGenerateTranscription : undefined;
-            case 12: return preEditScanData.length === 0 ? handleGeneratePreEditScan : undefined;
-            default: return undefined;
-        }
-    };
-    
-    const buttonAction = getButtonAction();
 
     return (
         <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center p-4 sm:p-8">
@@ -414,24 +548,26 @@ const App: React.FC = () => {
             <main className="w-full max-w-7xl bg-gray-800/50 rounded-lg shadow-2xl p-4 sm:p-8 border border-gray-700/50 flex-grow">
                 {renderStepContent()}
             </main>
-            <footer className="w-full max-w-7xl mt-8">
-                <div className="flex justify-end items-center gap-4">
-                    {buttonAction && (
-                        <button
-                            onClick={buttonAction}
-                            disabled={isLoading}
-                            className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-green-800 disabled:cursor-not-allowed"
+             <footer className="w-full max-w-7xl mt-8">
+                <div className="flex justify-between items-center gap-4">
+                     {currentStep > 1 ? (
+                         <button
+                            onClick={goBack}
+                            disabled={isLoading || isChatLoading}
+                            className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-md transition-colors disabled:opacity-50"
                         >
-                            {isLoading ? 'Generating...' : 'Generate'}
+                            &larr; Back
                         </button>
+                    ) : (
+                        <div /> // Placeholder to keep the next button on the right
                     )}
-                    {showNextButton && (
+                    {buttonState.text && (
                         <button
-                            onClick={handleNext}
-                            disabled={isNextDisabled}
+                            onClick={buttonState.action}
+                            disabled={buttonState.disabled}
                             className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-indigo-800 disabled:cursor-not-allowed"
                         >
-                            Next: {STEPS[currentStep]} &rarr;
+                            {isLoading ? 'Generating...' : buttonState.text}
                         </button>
                     )}
                 </div>

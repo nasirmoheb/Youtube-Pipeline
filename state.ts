@@ -14,6 +14,7 @@ export const DEFAULT_STATE = {
     extractedPrompts: { illustration: [], clear: [], consistent: [] },
     images: { illustration: {}, clear: {}, consistent: {} },
     imageSelection: {},
+    flaggedImages: {},
     checkedImages: new Set<string>(),
     svgConversionStatus: {},
     transcriptionData: [],
@@ -32,11 +33,22 @@ export const loadInitialState = () => {
             } else {
                  savedState.checkedImages = new Set();
             }
+             if (savedState.flaggedImages && typeof savedState.flaggedImages === 'object') {
+                const loadedFlags: {[key: string]: Set<string>} = {};
+                for (const beat in savedState.flaggedImages) {
+                    if (Array.isArray(savedState.flaggedImages[beat])) {
+                        loadedFlags[beat] = new Set(savedState.flaggedImages[beat]);
+                    }
+                }
+                savedState.flaggedImages = loadedFlags;
+            } else {
+                 savedState.flaggedImages = {};
+            }
             return { ...DEFAULT_STATE, ...savedState };
         }
     } catch (e) {
         console.error("Could not load or parse saved state, starting fresh.", e);
         localStorage.removeItem('aiVideoPipelineProject');
     }
-    return { ...DEFAULT_STATE, checkedImages: new Set<string>() };
+    return { ...DEFAULT_STATE, checkedImages: new Set<string>(), flaggedImages: {} };
 };

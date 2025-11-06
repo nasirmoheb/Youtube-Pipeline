@@ -19,7 +19,6 @@ interface Step3_ScriptingProps {
 }
 
 const Step3_Scripting: React.FC<Step3_ScriptingProps> = ({
-    scriptingSubStep,
     scriptData,
     isGenerating,
     isChatLoading,
@@ -32,54 +31,78 @@ const Step3_Scripting: React.FC<Step3_ScriptingProps> = ({
     handleRefineFullScript,
 }) => {
     return (
-        <div>
+        <div className="space-y-8">
             <h2 className="text-2xl font-bold">3. Scripting</h2>
-            {scriptingSubStep === 'hooks' && (
-                <div className="mt-4">
-                    <h3 className="text-xl font-semibold mb-2">3.1 Generate Hooks</h3>
-                    <div className="space-y-2">
-                        {scriptData.hooks.map((hook, index) => (
-                            <button
-                                key={index}
-                                onClick={() => handleSelectHook(hook)}
-                                className={`w-full text-left p-3 rounded-md transition-colors ${
-                                    scriptData.selectedHook === hook ? 'bg-indigo-600' : 'bg-gray-700 hover:bg-gray-600'
-                                }`}
-                            >
-                                {hook}
-                            </button>
-                        ))}
-                    </div>
+            
+            {/* --- Hooks Section --- */}
+            <div>
+                <h3 className="text-xl font-semibold mb-2">3.1 Generate Hooks</h3>
+                {scriptData.hooks.length === 0 && !isGenerating && (
+                    <p className="text-gray-400">Click "Generate Hooks" to start.</p>
+                )}
+                <div className="space-y-2">
+                    {scriptData.hooks.map((hook, index) => (
+                        <button
+                            key={index}
+                            onClick={() => handleSelectHook(hook)}
+                            className={`w-full text-left p-3 rounded-md transition-colors ${
+                                scriptData.selectedHook === hook ? 'bg-indigo-600 ring-2 ring-indigo-400' : 'bg-gray-700 hover:bg-gray-600'
+                            }`}
+                        >
+                            {hook}
+                        </button>
+                    ))}
+                </div>
+                {scriptData.hooks.length > 0 && (
                     <GeminiInteraction
                         onRegenerate={handleGenerateHooks}
                         isGenerating={isGenerating}
                         onChatSubmit={handleRefineHooks}
                         isChatLoading={isChatLoading}
                     />
-                </div>
-            )}
-            {scriptingSubStep === 'outline' && (
-                <div className="mt-4">
+                )}
+            </div>
+
+            {/* --- Outline Section --- */}
+            {scriptData.selectedHook && (
+                <div className="pt-8 border-t border-gray-700/50">
                     <h3 className="text-xl font-semibold mb-2">3.2 Generate Outline</h3>
-                    <MarkdownViewer content={scriptData.outline} />
-                    <GeminiInteraction
-                        onRegenerate={handleGenerateOutline}
-                        isGenerating={isGenerating}
-                        onChatSubmit={handleRefineOutline}
-                        isChatLoading={isChatLoading}
-                    />
+                    <p className="mb-4 text-sm text-gray-400">Based on hook: <span className="italic text-white">"{scriptData.selectedHook}"</span></p>
+                    {scriptData.outline.length === 0 && !isGenerating && (
+                         <p className="text-gray-400">Click "Generate Outline" to create the script structure.</p>
+                    )}
+                    {scriptData.outline.length > 0 && (
+                       <>
+                        <MarkdownViewer content={scriptData.outline} />
+                        <GeminiInteraction
+                            onRegenerate={handleGenerateOutline}
+                            isGenerating={isGenerating}
+                            onChatSubmit={handleRefineOutline}
+                            isChatLoading={isChatLoading}
+                        />
+                       </>
+                    )}
                 </div>
             )}
-            {scriptingSubStep === 'script' && (
-                <div className="mt-4">
+
+            {/* --- Full Script Section --- */}
+            {scriptData.outline && (
+                <div className="pt-8 border-t border-gray-700/50">
                     <h3 className="text-xl font-semibold mb-2">3.3 Generate Full Script</h3>
-                    <MarkdownViewer content={scriptData.fullScript} />
-                    <GeminiInteraction
-                        onRegenerate={handleGenerateFullScript}
-                        isGenerating={isGenerating}
-                        onChatSubmit={handleRefineFullScript}
-                        isChatLoading={isChatLoading}
-                    />
+                     {scriptData.fullScript.length === 0 && !isGenerating && (
+                         <p className="text-gray-400">Click "Generate Full Script" to write the final narration.</p>
+                    )}
+                    {scriptData.fullScript.length > 0 && (
+                        <>
+                        <MarkdownViewer content={scriptData.fullScript} />
+                        <GeminiInteraction
+                            onRegenerate={handleGenerateFullScript}
+                            isGenerating={isGenerating}
+                            onChatSubmit={handleRefineFullScript}
+                            isChatLoading={isChatLoading}
+                        />
+                        </>
+                    )}
                 </div>
             )}
         </div>
