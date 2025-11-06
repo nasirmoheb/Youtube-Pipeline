@@ -1,5 +1,6 @@
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 import type { Beat, StoryboardRow, ExtractedPrompt, TranscriptionWord, ImageSelection, PreEditScanItem, VoiceoverSegment } from '../types';
+import * as prompts from '../prompts';
 
 // The API key is assumed to be available from process.env.API_KEY
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -7,7 +8,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const generateSummary = async (title: string, bookContent: string): Promise<string> => {
-  // const prompt = `Summarize the following book content titled "${title}". Focus on character development, plot progression, and key themes to provide a solid foundation for a video script. Highlight the most engaging parts of the story to capture audience attention.\n\nBook Content:\n${bookContent || 'The user did not upload a book, but wants a video about ' + title}`;
+  // const prompt = prompts.getSummaryPrompt(title, bookContent);
   // const response = await ai.models.generateContent({
   //   model: 'gemini-2.5-pro',
   //   contents: prompt,
@@ -18,25 +19,13 @@ export const generateSummary = async (title: string, bookContent: string): Promi
 };
 
 export const generateHooks = async (summary: string, title: string): Promise<string[]> => {
-  // const prompt = `Based on this summary for a book titled "${title}", generate 3 short, engaging hooks for a YouTube video script. Each hook should be a single, compelling sentence designed to grab the viewer's attention.\n\nSummary:\n${summary}`;
+  // const prompt = prompts.getHooksPrompt(summary, title);
   // const response = await ai.models.generateContent({
   //   model: 'gemini-2.5-flash',
   //   contents: prompt,
   //   config: {
   //     responseMimeType: 'application/json',
-  //     responseSchema: {
-  //       type: Type.OBJECT,
-  //       properties: {
-  //         hooks: {
-  //           type: Type.ARRAY,
-  //           items: {
-  //             type: Type.STRING,
-  //             description: "An engaging hook for the video."
-  //           }
-  //         }
-  //       },
-  //       required: ['hooks']
-  //     }
+  //     responseSchema: prompts.hooksSchema
   //   }
   // });
   // const result = JSON.parse(response.text.trim());
@@ -50,7 +39,7 @@ export const generateHooks = async (summary: string, title: string): Promise<str
 };
 
 export const generateOutline = async (summary: string, title: string, hook: string): Promise<string> => {
-  // const prompt = `Create a video script outline for a book titled "${title}", based on the provided summary. The video should start with the hook: "${hook}". The outline should structure the video into an introduction, several parts exploring the story, and a conclusion.\n\nSummary:\n${summary}`;
+  // const prompt = prompts.getOutlinePrompt(summary, title, hook);
   // const response = await ai.models.generateContent({
   //   model: 'gemini-2.5-flash',
   //   contents: prompt,
@@ -61,7 +50,7 @@ export const generateOutline = async (summary: string, title: string, hook: stri
 };
 
 export const generateFullScript = async (outline: string, hook: string): Promise<string> => {
-    // const prompt = `Based on the following outline and starting with the hook "${hook}", write a full, detailed YouTube video script. Expand on each point, add engaging narration, and ensure a smooth flow between sections. The tone should be conversational and exciting.\n\nOutline:\n${outline}`;
+    // const prompt = prompts.getFullScriptPrompt(outline, hook);
     // const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
     // return response.text;
     await sleep(1000);
@@ -81,13 +70,13 @@ export const generateFullScript = async (outline: string, hook: string): Promise
 };
 
 export const generateVoiceoverSegments = async (fullScript: string): Promise<string[]> => {
-    // const prompt = `Split the following script into short, logical segments for voiceover recording. Each segment should be a complete sentence or a few related sentences. Return the result as a JSON array of strings.\n\nScript:\n${fullScript}`;
+    // const prompt = prompts.getVoiceoverSegmentsPrompt(fullScript);
     // const response = await ai.models.generateContent({
     //     model: 'gemini-2.5-flash',
     //     contents: prompt,
     //     config: {
     //         responseMimeType: 'application/json',
-    //         responseSchema: { type: Type.OBJECT, properties: { segments: { type: Type.ARRAY, items: { type: Type.STRING } } }, required: ['segments'] }
+    //         responseSchema: prompts.voiceoverSegmentsSchema
     //     }
     // });
     // const result = JSON.parse(response.text.trim());
@@ -116,13 +105,13 @@ export const generateVoiceover = async (text: string): Promise<string> => {
 };
 
 export const generateBeats = async (fullScript: string): Promise<Beat[]> => {
-    // const prompt = `Analyze the following script and break it down into key "beats" or moments. For each beat, provide a number and the corresponding script phrase. Return a JSON array of objects, where each object has "beat_number" and "script_phrase".\n\nScript:\n${fullScript}`;
+    // const prompt = prompts.getBeatsPrompt(fullScript);
     // const response = await ai.models.generateContent({
     //     model: 'gemini-2.5-flash',
     //     contents: prompt,
     //     config: {
     //         responseMimeType: 'application/json',
-    //         responseSchema: { type: Type.OBJECT, properties: { beats: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { beat_number: { type: Type.STRING }, script_phrase: { type: Type.STRING } } } } }, required: ['beats'] }
+    //         responseSchema: prompts.beatsSchema
     //     }
     // });
     // const result = JSON.parse(response.text.trim());
@@ -137,13 +126,13 @@ export const generateBeats = async (fullScript: string): Promise<Beat[]> => {
 };
 
 export const generateStoryboard = async (beats: Beat[], style: string): Promise<StoryboardRow[]> => {
-    // const prompt = `Create a storyboard from these script beats in the style of "${style}". For each shot, provide details for transition, AI image prompt, text overlay, kinetic text, and SFX. Return a JSON array of objects with keys: "shot_number", "beat_number", "script_phrase", "transition_type", "ai_prompt", "text_overlay", "kinetic_text", "sfx".\n\nBeats:\n${JSON.stringify(beats)}`;
+    // const prompt = prompts.getStoryboardPrompt(beats, style);
     // const response = await ai.models.generateContent({
     //     model: 'gemini-2.5-pro',
     //     contents: prompt,
     //     config: {
     //         responseMimeType: 'application/json',
-    //         responseSchema: { /* ... complex schema ... */ }
+    //         responseSchema: prompts.storyboardSchema
     //     }
     // });
     // const result = JSON.parse(response.text.trim());
@@ -187,7 +176,7 @@ export const generateImage = async (prompt: string): Promise<string> => {
 };
 
 export const refineText = async (textToRefine: string, instruction: string): Promise<string> => {
-    // const prompt = `Refine the following text based on this instruction: "${instruction}".\n\nOriginal Text:\n${textToRefine}`;
+    // const prompt = prompts.getRefineTextPrompt(textToRefine, instruction);
     // const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
     // return response.text;
     await sleep(800);
@@ -214,8 +203,17 @@ const formatTimestamp = (seconds: number): string => {
 };
 
 export const generateTranscription = async (fullScript: string): Promise<TranscriptionWord[]> => {
-    // const prompt = `Generate a word-level transcription with timestamps for the following script. Return a JSON array of objects with "word", "startTime", "endTime".\n\nScript:\n${fullScript}`;
-    // ... API call logic ...
+    // const prompt = prompts.getTranscriptionPrompt(fullScript);
+    // const response = await ai.models.generateContent({
+    //     model: 'gemini-2.5-flash',
+    //     contents: prompt,
+    //     config: {
+    //         responseMimeType: 'application/json',
+    //         responseSchema: prompts.transcriptionSchema
+    //     }
+    // });
+    // const result = JSON.parse(response.text.trim());
+    // return result.transcription;
     await sleep(1200);
 
     const words = fullScript.split(/\s+/).filter(w => w.length > 0);
