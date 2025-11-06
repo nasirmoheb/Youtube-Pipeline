@@ -1,0 +1,5 @@
+{
+  "name": "AI YouTube Video Pipeline",
+  "description": "A step-by-step application to automate YouTube video creation using AI. This tool helps with summarizing content, generating scripts, creating voiceovers, and producing images for video beats.",
+  "requestFramePermissions": []
+}
