@@ -343,6 +343,22 @@ const App: React.FC = () => {
         }
     }, []);
 
+    const handleConvertAllToSvg = useCallback(async () => {
+        const conversionPromises = Object.entries(imageSelection)
+            .filter(([beat_number]) => {
+                const currentStatus = svgConversionStatus[beat_number]?.status;
+                return currentStatus !== 'complete' && currentStatus !== 'converting';
+            })
+            .map(([beat_number, selection]) => {
+                if (selection) {
+                    return handleConvertImageToSvg(beat_number, selection.url);
+                }
+                return Promise.resolve();
+            });
+    
+        await Promise.all(conversionPromises);
+    }, [imageSelection, svgConversionStatus, handleConvertImageToSvg]);
+
     // Transcription
     const handleGenerateTranscription = useCallback(async () => {
         setIsLoading(true);
@@ -371,7 +387,11 @@ const App: React.FC = () => {
             case 7: return Object.values(extractedPrompts).some(p => p.length > 0);
             case 8: return Object.values(images).some(s => Object.keys(s).length > 0);
             case 9: return Object.keys(imageSelection).length > 0;
-            case 10: return Object.keys(svgConversionStatus).length > 0 && Object.values(svgConversionStatus).every(s => s.status === 'complete');
+            case 10: {
+                const selectedBeats = Object.keys(imageSelection);
+                if (selectedBeats.length === 0) return false;
+                return selectedBeats.every(beat => svgConversionStatus[beat]?.status === 'complete');
+            }
             case 11: return transcriptionData.length > 0;
             case 12: return preEditScanData.length > 0;
             case 13: return true;
@@ -525,7 +545,7 @@ const App: React.FC = () => {
             case 7: return <Step7_Prompts extractedPrompts={extractedPrompts} />;
             case 8: return <Step8_Images images={images} extractedPrompts={extractedPrompts} handleGenerateImages={handleGenerateImages} imageGenerationStatus={imageGenerationStatus} />;
             case 9: return <Step9_Select beats={beats} images={images} imageSelection={imageSelection} handleImageSelection={handleImageSelection} flaggedImages={flaggedImages} handleImageFlagToggle={handleImageFlagToggle} />;
-            case 10: return <Step10_SvgConvert imageSelection={imageSelection} svgConversionStatus={svgConversionStatus} handleConvertImageToSvg={handleConvertImageToSvg} />;
+            case 10: return <Step10_SvgConvert imageSelection={imageSelection} svgConversionStatus={svgConversionStatus} handleConvertAllToSvg={handleConvertAllToSvg} />;
             case 11: return <Step11_Transcription transcriptionData={transcriptionData} isGenerating={isLoading} handleGenerateTranscription={handleGenerateTranscription} setTranscriptionData={setTranscriptionData} />;
             case 12: return <Step12_PreEditScan preEditScanData={preEditScanData} />;
             case 13: return <Step13_VideoEdit combinedVoiceoverUrl={combinedVoiceoverUrl} scanData={preEditScanData} />;

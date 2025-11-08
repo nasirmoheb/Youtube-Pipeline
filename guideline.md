@@ -1,262 +1,344 @@
 # Backend API Guidelines for AI YouTube Video Pipeline
 
-This document outlines the API endpoints required to support the AI YouTube Video Pipeline frontend application. The backend is responsible for file system operations, interacting with AI services, and handling potentially long-running tasks.
+This document outlines the API endpoints and file system operations required to support the AI YouTube Video Pipeline frontend application. The backend's primary role is to manage the project's file system, interact with the Gemini API for content generation, and handle long-running tasks like generating images and converting them to SVG.
 
 ## General Principles
 
--   All API endpoints should be prefixed with `/api`.
--   Request and response bodies should be in JSON format.
--   Authentication and authorization are not covered in this guideline but should be implemented in a production environment.
--   Error responses should follow a consistent format: `{ "success": false, "error": "Error message details" }`.
--   The `projectPath` is a key identifier for all project-related resources. The backend must ensure this path is sanitized and secure to prevent directory traversal attacks.
+-   **Local & Single-User:** This guide assumes the backend is for local, single-user operation. No authentication or user management is required.
+-   **API Structure:** All API endpoints should be prefixed with `/api`. Request and response bodies should be in JSON format unless otherwise specified (e.g., for file uploads).
+-   **Project Path:** All operations are scoped to a `projectPath` provided by the client. The backend must use this path as the root for all file operations for a given project. It is crucial to sanitize this path to prevent security vulnerabilities like directory traversal.
+-   **Error Handling:** API error responses should follow a consistent format: `{ "success": false, "error": "A descriptive error message." }`.
 
 ---
 
-## 1. Project Management
+## Project File Structure
 
-### 1.1 Create Project Directory
+The backend will create and manage a directory for each project. The expected structure will look like this:
 
-Creates the necessary directory structure for a new video project on the server.
+```
+/path/to/your/projects/My-Video-Project/
+├── book.txt
+├── summary.txt
+├── script.md
+├── beats.md
+├── storyboards/
+│   ├── illustration.md
+│   ├── clear.md
+│   └── consistent.md
+├── prompts/
+│   ├── prompts-illustration.js
+│   ├── prompts-clear.js
+│   └── prompts-consistent.js
+├── voiceover/
+│   ├── 1.mp3
+│   └── 2.mp3
+│   └── ...
+├── images/
+│   ├── illustration/
+│   │   ├── Beat 1.png
+│   │   └── ...
+│   ├── clear/
+│   └── consistent/
+├── finalImage/
+│   ├── Beat 1.png
+│   ├── Beat 2-flag.png
+│   └── ...
+├── finalImageSVG/
+│   ├── Beat 1.svg
+│   ├── Beat 2-flag.svg
+│   └── ...
+└── transcription.txt
+```
+
+---
+
+## API Endpoint Guide
+
+### 1. Project Setup
 
 -   **Endpoint:** `POST /api/project`
--   **Description:** Called from "Step 1: Project Setup". Creates a root folder for the project.
+-   **Description:** Creates the project folder and saves the initial book content.
 -   **Request Body:**
-
     ```json
     {
-      "projectPath": "/path/from/user/input/My-Video-Project"
+      "projectPath": "/path/to/your/projects/My-Video-Project",
+      "bookContent": "The full text content of the book..."
     }
     ```
-
+-   **Action:**
+    1.  Create the directory specified by `projectPath`.
+    2.  Save the `bookContent` into a new file: `{projectPath}/book.txt`.
 -   **Success Response (201):**
-
     ```json
     {
       "success": true,
-      "message": "Project created successfully.",
-      "projectPath": "/server/sanitized/path/My-Video-Project"
+      "message": "Project created successfully."
     }
     ```
 
--   **Error Response (400/500):**
-    ```json
-    {
-      "success": false,
-      "error": "Invalid project path provided."
-    }
-    ```
-    ```json
-    {
-      "success": false,
-      "error": "Failed to create project directory. It may already exist."
-    }
-    ```
+### 2. Content Summarization
 
----
-
-## 2. File Operations
-
-### 2.1 Save Text-Based File
-
-A generic endpoint to save text content (like summaries, scripts, beats, storyboards, prompts, and JSON data) to a file within a project directory.
-
--   **Endpoint:** `POST /api/file`
--   **Description:** Used in multiple steps (2, 3, 5, 6, 7, 12) to save generated text content.
+-   **Endpoint:** `POST /api/summarize`
+-   **Description:** Reads the book content and uses Gemini to generate a summary.
 -   **Request Body:**
     ```json
     {
-      "projectPath": "/server/sanitized/path/My-Video-Project",
-      "fileName": "summary.md",
-      "content": "This is the generated summary of the book..."
+      "projectPath": "/path/to/your/projects/My-Video-Project"
     }
     ```
--   **Example `fileName` values:**
-    -   `summary.md`
-    -   `script.md`
-    -   `beats.md`
-    -   `storyboard-illustration.md`
-    -   `storyboard-clear.md`
-    -   `storyboard-consistent.md`
-    -   `prompts-illustration.js`
-    -   `pre-edit-scan.json`
-
+-   **Action:**
+    1.  Read the content of `{projectPath}/book.txt`.
+    2.  Call the Gemini API to summarize the text.
+    3.  Save the resulting summary to `{projectPath}/summary.txt`.
 -   **Success Response (200):**
     ```json
     {
       "success": true,
-      "message": "File 'summary.md' saved successfully.",
-      "filePath": "/server/sanitized/path/My-Video-Project/summary.md"
-    }
-    ```
--   **Error Response (400/500):**
-    ```json
-    {
-      "success": false,
-      "error": "Project path does not exist."
+      "summary": "The generated summary text..."
     }
     ```
 
-### 2.2 Save Audio File
+### 3. Script Generation
 
-Saves a generated voiceover file. The audio data is sent as a base64 encoded string.
-
--   **Endpoint:** `POST /api/audio`
--   **Description:** Used in "Step 4: Voiceover" to save the generated audio segments or the final combined voiceover. The backend should decode the base64 string and save it as an MP3 file.
+-   **Endpoint:** `POST /api/script`
+-   **Description:** Reads the summary and uses Gemini to generate a full video script.
 -   **Request Body:**
     ```json
     {
-      "projectPath": "/server/sanitized/path/My-Video-Project",
-      "fileName": "voiceover.mp3",
-      "audioData": "UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=..."
+      "projectPath": "/path/to/your/projects/My-Video-Project"
     }
     ```
-
+-   **Action:**
+    1.  Read the content of `{projectPath}/summary.txt`.
+    2.  Call the Gemini API to generate the script.
+    3.  Save the result to `{projectPath}/script.md`.
 -   **Success Response (200):**
     ```json
     {
       "success": true,
-      "message": "File 'voiceover.mp3' saved successfully.",
-      "filePath": "/server/sanitized/path/My-Video-Project/voiceover.mp3"
+      "script": "The full generated script in Markdown format..."
     }
     ```
 
-### 2.3 Save Final Image
+### 4. Voiceover Generation
 
-Saves an image selected by the user into a dedicated `final_images` folder within the project directory.
-
--   **Endpoint:** `POST /api/image/final`
--   **Description:** Called from "Step 9: Select Best Image per Beat". The server receives the image URL (which could be a data URL), fetches it if necessary, and saves it as a file.
+-   **Endpoint:** `POST /api/voiceover`
+-   **Description:** Splits the script into segments and generates an audio file for each one.
 -   **Request Body:**
     ```json
     {
-      "projectPath": "/server/sanitized/path/My-Video-Project",
-      "beatNumber": "Beat 1",
-      "imageUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgA..."
+      "projectPath": "/path/to/your/projects/My-Video-Project"
     }
     ```
+-   **Action:**
+    1.  Create a `voiceover` sub-directory: `{projectPath}/voiceover/`.
+    2.  Read `{projectPath}/script.md`.
+    3.  Split the script into logical segments (e.g., by paragraph).
+    4.  For each segment, call the Gemini TTS API to generate audio.
+    5.  Save each audio file sequentially (e.g., `1.mp3`, `2.mp3`) inside the `voiceover` folder.
 -   **Success Response (200):**
     ```json
     {
       "success": true,
-      "message": "Image for 'Beat 1' saved successfully.",
-      "filePath": "/server/sanitized/path/My-Video-Project/final_images/Beat 1.png"
+      "message": "Voiceover segments generated successfully."
     }
     ```
--   **Note:** The backend should handle decoding the data URL and determining the correct file extension.
 
----
+### 5. Beat Generation
 
-## 3. AI Service Proxies
-
-### 3.1 Generate Image
-
-Proxies a request to an AI image generation service.
-
--   **Endpoint:** `POST /api/generate/image`
--   **Description:** Used in "Step 8: Generating Images...". The backend receives a text prompt, calls the AI service (e.g., Imagen), and returns the generated image, likely as a data URL.
+-   **Endpoint:** `POST /api/beats`
+-   **Description:** Generates narrative beats from the script.
 -   **Request Body:**
     ```json
     {
-      "prompt": "A majestic cinematic shot of a futuristic city at dusk, hyperrealistic."
+      "projectPath": "/path/to/your/projects/My-Video-Project"
     }
     ```
+-   **Action:**
+    1.  Read `{projectPath}/script.md`.
+    2.  Call the Gemini API to generate beats.
+    3.  Save the result to `{projectPath}/beats.md`.
 -   **Success Response (200):**
     ```json
     {
       "success": true,
-      "imageUrl": "data:image/jpeg;base64,..."
-    }
-    ```
--   **Error Response (502):**
-    ```json
-    {
-      "success": false,
-      "error": "The image generation service failed."
+      "beats": "The generated beats in Markdown format..."
     }
     ```
 
-### 3.2 Convert Image to SVG (Async)
+### 6. Storyboard Creation
 
-Initiates a long-running task to convert a raster image to an SVG and allows polling for progress.
-
--   **Endpoint (Initiate):** `POST /api/convert/svg`
--   **Description:** Starts the conversion process for an image in the `final_images` folder.
+-   **Endpoint:** `POST /api/storyboards`
+-   **Description:** Generates three different styles of storyboards from the beats.
 -   **Request Body:**
     ```json
     {
-      "projectPath": "/server/sanitized/path/My-Video-Project",
-      "imageFileName": "Beat 1.png"
+      "projectPath": "/path/to/your/projects/My-Video-Project"
     }
     ```
+-   **Action:**
+    1.  Create a `storyboards` sub-directory.
+    2.  Read `{projectPath}/beats.md`.
+    3.  Call the Gemini API three times, once for each style ('illustration', 'clear', 'consistent').
+    4.  Save the results to `{projectPath}/storyboards/illustration.md`, `clear.md`, and `consistent.md`.
+-   **Success Response (200):**
+    ```json
+    {
+      "success": true,
+      "message": "Storyboards created successfully."
+    }
+    ```
+
+### 7. Prompt Extraction
+
+-   **Endpoint:** `POST /api/prompts`
+-   **Description:** Extracts image generation prompts from each storyboard.
+-   **Request Body:**
+    ```json
+    {
+      "projectPath": "/path/to/your/projects/My-Video-Project"
+    }
+    ```
+-   **Action:**
+    1.  Create a `prompts` sub-directory.
+    2.  Read and parse each storyboard file from the `storyboards` folder.
+    3.  Extract the `ai_prompt` column/field from each.
+    4.  Save the extracted prompts into `{projectPath}/prompts/prompts-illustration.js`, `prompts-clear.js`, and `prompts-consistent.js`. The file format should be a JavaScript variable assignment as seen in the frontend.
+-   **Success Response (200):**
+    ```json
+    {
+      "success": true,
+      "message": "Prompts extracted successfully."
+    }
+    ```
+
+### 8. Image Generation
+
+-   **Endpoint:** `POST /api/generate-images`
+-   **Description:** A long-running task to generate all images. The frontend should poll for status.
+-   **Request Body:**
+    ```json
+    {
+      "projectPath": "/path/to/your/projects/My-Video-Project"
+    }
+    ```
+-   **Action:**
+    1.  Create the `images/illustration`, `images/clear`, and `images/consistent` sub-directories.
+    2.  Read the prompt files from the `prompts` folder.
+    3.  Iterate through each prompt, call the Gemini image generation API, and save the resulting image to the correct sub-directory, named after its corresponding beat (e.g., `Beat 1.png`).
+    4.  This should be an asynchronous process.
 -   **Success Response (202 Accepted):**
     ```json
     {
       "success": true,
-      "taskId": "a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890"
+      "taskId": "a1b2c3d4-e5f6-7890"
+    }
+    ```
+-   **Status Endpoint:** `GET /api/status/images/{taskId}`
+-   **Status Response (200):**
+    ```json
+    {
+      "status": "processing",
+      "progress": 50,
+      "message": "Generated 15 of 30 images."
     }
     ```
 
--   **Endpoint (Check Status):** `GET /api/convert/svg/status/{taskId}`
--   **Description:** Polled by the frontend to get progress updates.
--   **Success Responses (200):**
-    -   *In Progress:*
-        ```json
-        {
-          "status": "converting",
-          "progress": 50
-        }
-        ```
-    -   *Complete:*
-        ```json
-        {
-          "status": "complete",
-          "progress": 100,
-          "svgUrl": "/server/sanitized/path/My-Video-Project/final_images/Beat 1.svg"
-        }
-        ```
-    -   *Error:*
-        ```json
-        {
-          "status": "error",
-          "error": "Conversion failed for an unknown reason."
-        }
-        ```
+### 9. Image Selection
 
-### 3.3 Transcribe Audio
-
-Proxies a request to an AI speech-to-text service to generate word-level transcriptions.
-
--   **Endpoint:** `POST /api/transcribe`
--   **Description:** Used in "Step 11: Transcription". The backend takes an audio file from the project path, sends it to a transcription service, and returns the structured result.
+-   **Endpoint:** `POST /api/select-image`
+-   **Description:** Saves a user-selected image to the final output directory.
 -   **Request Body:**
     ```json
     {
-      "projectPath": "/server/sanitized/path/My-Video-Project",
-      "audioFileName": "voiceover.mp3"
+      "projectPath": "/path/to/your/projects/My-Video-Project",
+      "beatNumber": "Beat 2",
+      "sourceImagePath": "/path/to/your/projects/My-Video-Project/images/illustration/Beat 2.png",
+      "isFlagged": true
     }
     ```
+-   **Action:**
+    1.  Create the `finalImage` sub-directory if it doesn't exist.
+    2.  Copy the file from `sourceImagePath` to the `finalImage` folder.
+    3.  The new filename should be `{beatNumber}.png`. If `isFlagged` is true, append "-flag" to the name (e.g., `Beat 2-flag.png`).
 -   **Success Response (200):**
     ```json
     {
-        "success": true,
-        "transcription": [
-            {
-                "word": "This",
-                "startTime": "00:00:00,123",
-                "endTime": "00:00:00,456"
-            },
-            {
-                "word": "is",
-                "startTime": "00:00:00,480",
-                "endTime": "00:00:00,600"
-            }
-        ]
+      "success": true,
+      "message": "Image for Beat 2 selected and saved."
     }
     ```
--   **Error Response (502):**
+
+### 10. SVG Conversion
+
+-   **Endpoint:** `POST /api/convert-svg`
+-   **Description:** Converts all selected final images to SVG format.
+-   **Request Body:**
     ```json
     {
-      "success": false,
-      "error": "The transcription service failed."
+      "projectPath": "/path/to/your/projects/My-Video-Project"
     }
     ```
+-   **Action:**
+    1.  Create the `finalImageSVG` sub-directory.
+    2.  List all image files in the `{projectPath}/finalImage` directory.
+    3.  For each image, use a library or API call to convert it to SVG.
+    4.  Save the new SVG file in the `finalImageSVG` directory with the same base name (e.g., `Beat 1.svg`).
+-   **Success Response (200):**
+    ```json
+    {
+      "success": true,
+      "message": "All final images converted to SVG."
+    }
+    ```
+
+### 11. Transcription Upload
+
+-   **Endpoint:** `POST /api/upload-transcription`
+-   **Description:** Handles the upload of a transcription file. This endpoint should accept `multipart/form-data`.
+-   **Request Body:** A form data object containing the `projectPath` and the file itself.
+-   **Action:**
+    1.  Receive the uploaded file.
+    2.  Save it to `{projectPath}/transcription.txt`, overwriting any existing file.
+-   **Success Response (200):**
+    ```json
+    {
+      "success": true,
+      "message": "Transcription file uploaded successfully."
+    }
+    ```
+
+### 12. Pre-Edit Scan
+
+-   **Endpoint:** `POST /api/pre-edit-scan`
+-   **Description:** Generates a pre-edit scan JSON file for the video editor.
+-   **Request Body:**
+    ```json
+    {
+      "projectPath": "/path/to/your/projects/My-Video-Project"
+    }
+    ```
+-   **Action:**
+    1.  Read `{projectPath}/transcription.txt`.
+    2.  Read `{projectPath}/storyboards/illustration.md`.
+    3.  Perform the alignment logic to match script phrases from the storyboard to word timings in the transcription.
+    4.  Generate the final JSON structure for the pre-edit scan.
+-   **Success Response (200):**
+    ```json
+    {
+      "success": true,
+      "scanData": [
+        { "beat_number": "Beat 1", "start": 0.5, "end": 4.2, "...": "..." }
+      ]
+    }
+    ```
+
+---
+
+## Steps Not Requiring Significant Backend Logic
+
+While the backend is crucial for file management and AI calls, some steps are primarily handled by the frontend UI. The backend's role in these steps is minimal, often just saving the final result.
+
+-   **Step 9: Image Selection:** The entire process of displaying the three image options, handling navigation between beats, and managing the selection state is a frontend task. The backend is only involved at the very end when the frontend sends a request to save the chosen image for a specific beat.
+
+-   **Step 13 (Video Edit):** In the current application, video rendering is handled entirely on the **client-side** using Remotion Player. The frontend takes the pre-edit scan data (from Step 12), the final images, and the voiceover audio, and it composes them into a playable video preview in the browser. A backend would only be needed if you wanted to perform a final, high-quality, server-side render of the video into an MP4 file, which is outside the scope of the current application's interactive flow.
