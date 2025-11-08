@@ -365,7 +365,7 @@ const App: React.FC = () => {
             case 1: return !!(metadata.title && metadata.projectPath);
             case 2: return summary.length > 0;
             case 3: return scriptData.fullScript.length > 0;
-            case 4: return voiceoverSegments.length > 0 && voiceoverSegments.every(s => s.status === 'complete');
+            case 4: return voiceoverSegments.length > 0;
             case 5: return beats.length > 0;
             case 6: return Object.values(storyboards).some(s => s.length > 0);
             case 7: return Object.values(extractedPrompts).some(p => p.length > 0);
@@ -461,9 +461,6 @@ const App: React.FC = () => {
                     text = "Generate Segments";
                     action = handleGenerateVoiceoverSegments;
                     disabled = isLoading || isChatLoading;
-                } else if (!isStepComplete()) {
-                    text = "Finish Generating All Segments";
-                    disabled = true;
                 }
                 break;
             case 5:
@@ -481,7 +478,7 @@ const App: React.FC = () => {
                 }
                 break;
             case 12:
-                 if (!combinedVoiceoverUrl) {
+                 if (!combinedVoiceoverUrl && voiceoverSegments.some(s => s.status === 'complete')) {
                     text = "Combine Audio";
                     action = handleCombineVoiceovers;
                     disabled = isLoading || isChatLoading || !voiceoverSegments.every(s => s.status === 'complete');
