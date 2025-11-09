@@ -42,35 +42,47 @@ const Step4_Voiceover: React.FC<Step4_VoiceoverProps> = ({ voiceoverSegments, ha
             <h2 className="text-2xl font-bold">4. Voiceover Generation</h2>
             <div className="mt-4 space-y-3">
                 {voiceoverSegments.map(segment => (
-                    <div key={segment.id} className="bg-gray-700 p-3 rounded-md flex items-center justify-between">
-                        <p className="flex-grow mr-4">{segment.text}</p>
-                        <div className="flex items-center space-x-2 flex-shrink-0">
-                            {segment.status === 'complete' && segment.audioUrl && (
-                                <button onClick={() => handlePlayAudio(segment.audioUrl)} className="p-2 rounded-full bg-green-500 hover:bg-green-600 text-white" title="Play audio">
-                                    <PlayIcon className="w-5 h-5" />
-                                </button>
-                            )}
-                             <button
-                                onClick={() => handleCopy(segment.id, segment.text)}
-                                className="p-2 rounded-full bg-gray-600 hover:bg-gray-500 text-white transition-colors"
-                                title="Copy text"
-                            >
-                                {copiedId === segment.id ? (
-                                    <CheckIcon className="w-5 h-5 text-green-400" />
-                                ) : (
-                                    <ClipboardIcon className="w-5 h-5" />
+                    <div key={segment.id} className="bg-gray-700 p-3 rounded-md">
+                        <div className="flex items-center justify-between">
+                            <p className="flex-grow mr-4">{segment.text}</p>
+                            <div className="flex items-center space-x-2 flex-shrink-0">
+                                {segment.status === 'complete' && segment.audioUrl && (
+                                    <button onClick={() => handlePlayAudio(segment.audioUrl)} className="p-2 rounded-full bg-green-500 hover:bg-green-600 text-white" title="Play audio">
+                                        <PlayIcon className="w-5 h-5" />
+                                    </button>
                                 )}
-                            </button>
-                            <button
-                                onClick={() => handleGenerateVoiceoverForSegment(segment.id)}
-                                disabled={segment.status === 'generating'}
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-md text-sm disabled:bg-indigo-900 disabled:cursor-wait"
-                            >
-                                {segment.status === 'pending' && 'Generate'}
-                                {segment.status === 'generating' && 'Generating...'}
-                                {segment.status === 'complete' && 'Regenerate'}
-                            </button>
+                                <button
+                                    onClick={() => handleCopy(segment.id, segment.text)}
+                                    className="p-2 rounded-full bg-gray-600 hover:bg-gray-500 text-white transition-colors"
+                                    title="Copy text"
+                                >
+                                    {copiedId === segment.id ? (
+                                        <CheckIcon className="w-5 h-5 text-green-400" />
+                                    ) : (
+                                        <ClipboardIcon className="w-5 h-5" />
+                                    )}
+                                </button>
+                                <button
+                                    onClick={() => handleGenerateVoiceoverForSegment(segment.id)}
+                                    disabled={segment.status === 'generating'}
+                                    className={`font-semibold py-2 px-4 rounded-md text-sm ${
+                                        segment.status === 'error' 
+                                            ? 'bg-red-600 hover:bg-red-700 text-white' 
+                                            : 'bg-indigo-600 hover:bg-indigo-700 text-white disabled:bg-indigo-900 disabled:cursor-wait'
+                                    }`}
+                                >
+                                    {segment.status === 'pending' && 'Generate'}
+                                    {segment.status === 'generating' && 'Generating...'}
+                                    {segment.status === 'complete' && 'Regenerate'}
+                                    {segment.status === 'error' && 'Retry'}
+                                </button>
+                            </div>
                         </div>
+                        {segment.status === 'error' && segment.error && (
+                            <div className="mt-2 p-2 bg-red-900/50 border border-red-700 rounded text-red-200 text-sm">
+                                <strong>Error:</strong> {segment.error}
+                            </div>
+                        )}
                     </div>
                 ))}
             </div>

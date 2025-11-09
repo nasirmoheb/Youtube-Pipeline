@@ -8,65 +8,41 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const generateSummary = async (title: string, bookContent: string): Promise<string> => {
-  // const prompt = prompts.getSummaryPrompt(title, bookContent);
-  // const response = await ai.models.generateContent({
-  //   model: 'gemini-2.5-pro',
-  //   contents: prompt,
-  // });
-  // return response.text;
-  await sleep(500);
-  return `This is a placeholder summary for the book titled **"${title}"**. It would normally contain details about character development, plot progression, and key themes. For testing purposes, we are using this static text. The content provided was ${bookContent ? bookContent.length : 0} characters long.`;
+  const prompt = prompts.getSummaryPrompt(title, bookContent);
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.0-flash-exp',
+    contents: prompt,
+  });
+  return response.text;
 };
 
 export const generateHooks = async (summary: string, title: string): Promise<string[]> => {
-  // const prompt = prompts.getHooksPrompt(summary, title);
-  // const response = await ai.models.generateContent({
-  //   model: 'gemini-2.5-flash',
-  //   contents: prompt,
-  //   config: {
-  //     responseMimeType: 'application/json',
-  //     responseSchema: prompts.hooksSchema
-  //   }
-  // });
-  // const result = JSON.parse(response.text.trim());
-  // return result.hooks;
-  await sleep(500);
-  return [
-    `Placeholder Hook 1: What if everything you knew about "${title}" was a lie?`,
-    `Placeholder Hook 2: Discover the dark secret hidden within "${title}".`,
-    `Placeholder Hook 3: You won't believe what happens in the final chapter of "${title}".`
-  ];
+  const prompt = prompts.getHooksPrompt(summary, title);
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.0-flash-exp',
+    contents: prompt,
+    config: {
+      responseMimeType: 'application/json',
+      responseSchema: prompts.hooksSchema
+    }
+  });
+  const result = JSON.parse(response.text.trim());
+  return result.hooks;
 };
 
 export const generateOutline = async (summary: string, title: string, hook: string): Promise<string> => {
-  // const prompt = prompts.getOutlinePrompt(summary, title, hook);
-  // const response = await ai.models.generateContent({
-  //   model: 'gemini-2.5-flash',
-  //   contents: prompt,
-  // });
-  // return response.text;
-  await sleep(500);
-  return `# Video Outline for: ${title}\n\n## Introduction\n- **Hook:** ${hook}\n- Briefly introduce the book and its author.\n- State what the video will cover.\n\n## Part 1: The Setup\n- Introduce the main characters.\n- Describe the initial setting and conflict.\n\n## Part 2: The Rising Action\n- Key plot points and challenges the characters face.\n- Placeholder for major event 1.\n- Placeholder for major event 2.\n\n## Part 3: The Climax\n- The turning point of the story.\n- How the main conflict is addressed.\n\n## Conclusion\n- Summarize the key takeaways.\n- Discuss the book's themes.\n- Call to action (like, subscribe, read the book).`;
+  const prompt = prompts.getOutlinePrompt(summary, title, hook);
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.0-flash-exp',
+    contents: prompt,
+  });
+  return response.text;
 };
 
 export const generateFullScript = async (outline: string, hook: string): Promise<string> => {
-    // const prompt = prompts.getFullScriptPrompt(outline, hook);
-    // const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
-    // return response.text;
-    await sleep(1000);
-    return `
-# Full Video Script
-
-**(Intro Music with dramatic visuals)**
-
-**Host:** ${hook} Today, we're diving deep into one of the most talked-about books of the year.
-
-**(Scene showing the book cover)**
-
-**Host:** We'll explore the characters, uncover the secrets, and break down the moments that made this story unforgettable. This is a placeholder script based on the generated outline. It would typically contain detailed narration for each section of the video, bringing the story to life for the audience.
-
-... (more placeholder script content) ...
-    `;
+    const prompt = prompts.getFullScriptPrompt(outline, hook);
+    const response = await ai.models.generateContent({ model: 'gemini-2.0-flash-exp', contents: prompt });
+    return response.text;
 };
 
 export const generateVoiceoverSegments = async (fullScript: string): Promise<string[]> => {
@@ -176,11 +152,9 @@ export const generateImage = async (prompt: string): Promise<string> => {
 };
 
 export const refineText = async (textToRefine: string, instruction: string): Promise<string> => {
-    // const prompt = prompts.getRefineTextPrompt(textToRefine, instruction);
-    // const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
-    // return response.text;
-    await sleep(800);
-    return `${textToRefine}\n\n**Refinement:** This is a placeholder refinement based on the instruction: "${instruction}". The original text has been updated accordingly.`;
+    const prompt = prompts.getRefineTextPrompt(textToRefine, instruction);
+    const response = await ai.models.generateContent({ model: 'gemini-2.0-flash-exp', contents: prompt });
+    return response.text;
 };
 
 export const convertToSvg = async (imageUrl: string, onProgress: (progress: number) => void): Promise<string> => {

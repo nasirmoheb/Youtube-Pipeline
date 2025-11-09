@@ -49,9 +49,8 @@ const Step6_Storyboard: React.FC<Step6_StoryboardProps> = ({ storyboards, isGene
                         <button
                             key={style}
                             onClick={() => setActiveTab(style)}
-                            className={`capitalize px-4 py-2 text-sm font-medium rounded-md flex-1 transition-colors ${
-                                activeTab === style ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-600/50'
-                            }`}
+                            className={`capitalize px-4 py-2 text-sm font-medium rounded-md flex-1 transition-colors ${activeTab === style ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-600/50'
+                                }`}
                         >
                             {style}
                         </button>
@@ -59,14 +58,25 @@ const Step6_Storyboard: React.FC<Step6_StoryboardProps> = ({ storyboards, isGene
                 </div>
                 <div className="bg-gray-900/50 rounded-b-lg border border-t-0 border-gray-700 p-4">
                     {storyboards[activeTab]?.length > 0 ? (
-                        <StoryboardTable rows={storyboards[activeTab]} />
+                        <div>
+                            <div className="mb-4 flex justify-end">
+                                <button
+                                    onClick={() => handleGenerateStoryboard(activeTab)}
+                                    disabled={isGenerating}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-md transition-colors disabled:bg-indigo-800 disabled:cursor-not-allowed"
+                                >
+                                    {isGenerating ? `Regenerating ${activeTab}...` : `Regenerate ${activeTab} Storyboard`}
+                                </button>
+                            </div>
+                            <StoryboardTable rows={storyboards[activeTab]} />
+                        </div>
                     ) : (
                         <div className="text-center py-12">
                             <p className="text-gray-400 mb-4">No storyboard generated for the "{activeTab}" style yet.</p>
                             <button
                                 onClick={() => handleGenerateStoryboard(activeTab)}
                                 disabled={isGenerating}
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-indigo-800"
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-indigo-800 disabled:cursor-not-allowed"
                             >
                                 {isGenerating ? `Generating ${activeTab}...` : `Generate ${activeTab} Storyboard`}
                             </button>

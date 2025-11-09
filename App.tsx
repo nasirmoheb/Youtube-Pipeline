@@ -101,20 +101,72 @@ const App: React.FC = () => {
     };
 
     // --- Handlers for each step ---
+    
+    const handleCreateProject = useCallback(async () => {
+        if (!metadata.projectPath || !bookContent || !metadata.title) return;
+        
+        setIsLoading(true);
+        try {
+            const apiService = await import('./services/apiService');
+            await apiService.createProject(metadata.projectPath, bookContent, metadata.title);
+        } catch (error) {
+            console.error('Failed to create project:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [metadata.projectPath, bookContent, metadata.title]);
 
     const handleGenerateSummary = useCallback(async () => {
+        if (!metadata.projectPath || !metadata.title || !bookContent) {
+            console.error('Missing required data for summary generation');
+            return;
+        }
+        
         setIsLoading(true);
-        const result = await geminiService.generateSummary(metadata.title, bookContent);
-        setSummary(result);
-        setIsLoading(false);
-    }, [metadata.title, bookContent]);
+        try {
+            // Generate summary using frontend Gemini API
+            const generatedSummary = await geminiService.generateSummary(metadata.title, bookContent);
+            setSummary(generatedSummary);
+            
+            // Save summary to backend
+            const apiService = await import('./services/apiService');
+            const response = await apiService.saveSummary(metadata.projectPath, generatedSummary);
+            
+            if (!response.success) {
+                console.error('Failed to save summary:', response.error);
+            }
+        } catch (error) {
+            console.error('Failed to generate summary:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [metadata.projectPath, metadata.title, bookContent]);
 
     const handleRefineSummary = useCallback(async (instruction: string) => {
+        if (!metadata.projectPath) {
+            console.error('No project path available');
+            return;
+        }
+        
         setIsChatLoading(true);
-        const result = await geminiService.refineText(summary, instruction);
-        setSummary(result);
-        setIsChatLoading(false);
-    }, [summary]);
+        try {
+            // Refine summary using frontend Gemini API
+            const refinedSummary = await geminiService.refineText(summary, instruction);
+            setSummary(refinedSummary);
+            
+            // Save refined summary to backend
+            const apiService = await import('./services/apiService');
+            const response = await apiService.saveSummary(metadata.projectPath, refinedSummary);
+            
+            if (!response.success) {
+                console.error('Failed to save refined summary:', response.error);
+            }
+        } catch (error) {
+            console.error('Failed to refine summary:', error);
+        } finally {
+            setIsChatLoading(false);
+        }
+    }, [summary, metadata.projectPath]);
     
     // Scripting Handlers
     const handleGenerateHooks = useCallback(async () => {
@@ -152,36 +204,115 @@ const App: React.FC = () => {
     }, [scriptData.outline]);
     
     const handleGenerateFullScript = useCallback(async () => {
+        if (!metadata.projectPath) {
+            console.error('No project path available');
+            return;
+        }
+        
         setIsLoading(true);
-        const fullScript = await geminiService.generateFullScript(scriptData.outline, scriptData.selectedHook);
-        setScriptData(prev => ({ ...prev, fullScript }));
-        setIsLoading(false);
-    }, [scriptData.outline, scriptData.selectedHook]);
+        try {
+            // Generate script using frontend Gemini API
+            const fullScript = await geminiService.generateFullScript(scriptData.outline, scriptData.selectedHook);
+            setScriptData(prev => ({ ...prev, fullScript }));
+            
+            // Save script to backend
+            const apiService = await import('./services/apiService');
+            const response = await apiService.saveScript(metadata.projectPath, fullScript);
+            
+            if (!response.success) {
+                console.error('Failed to save script:', response.error);
+            }
+        } catch (error) {
+            console.error('Failed to generate script:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [scriptData.outline, scriptData.selectedHook, metadata.projectPath]);
 
     const handleRefineFullScript = useCallback(async (instruction: string) => {
+        if (!metadata.projectPath) {
+            console.error('No project path available');
+            return;
+        }
+        
         setIsChatLoading(true);
-        const refined = await geminiService.refineText(scriptData.fullScript, instruction);
-        setScriptData(prev => ({ ...prev, fullScript: refined }));
-        setIsChatLoading(false);
-    }, [scriptData.fullScript]);
+        try {
+            // Refine script using frontend Gemini API
+            const refined = await geminiService.refineText(scriptData.fullScript, instruction);
+            setScriptData(prev => ({ ...prev, fullScript: refined }));
+            
+            // Save refined script to backend
+            const apiService = await import('./services/apiService');
+            const response = await apiService.saveScript(metadata.projectPath, refined);
+            
+            if (!response.success) {
+                console.error('Failed to save refined script:', response.error);
+            }
+        } catch (error) {
+            console.error('Failed to refine script:', error);
+        } finally {
+            setIsChatLoading(false);
+        }
+    }, [scriptData.fullScript, metadata.projectPath]);
 
     // Voiceover Handlers
     const handleGenerateVoiceoverSegments = useCallback(async () => {
         setIsLoading(true);
-        const segments = await geminiService.generateVoiceoverSegments(scriptData.fullScript);
-        setVoiceoverSegments(segments.map((s, i) => ({ id: i, text: s, status: 'pending' })));
-        setIsLoading(false);
-    }, [scriptData.fullScript]);
+        try {
+            const apiService = await import('./services/apiService');
+            const response = await apiService.extractVoiceoverSegments(metadata.projectPath);
+            
+            if (response.success && response.segments) {
+                setVoiceoverSegments(response.segments.map((s, i) => ({ id: i, text: s, status: 'pending' })));
+            } else {
+                console.error('Failed to extract segments:', response.error);
+                alert('Failed to extract voiceover segments: ' + (response.error || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Error extracting segments:', error);
+            alert('Error extracting voiceover segments: ' + (error as Error).message);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [metadata.projectPath]);
     
     const handleGenerateVoiceoverForSegment = useCallback(async (segmentId: number) => {
-        setVoiceoverSegments(prev => prev.map(s => s.id === segmentId ? { ...s, status: 'generating' } : s));
-        const segment = voiceoverSegments.find(s => s.id === segmentId);
-        if (segment) {
-            const audioBase64 = await geminiService.generateVoiceover(segment.text);
-            const audioUrl = `data:audio/wav;base64,${audioBase64}`;
-            setVoiceoverSegments(prev => prev.map(s => s.id === segmentId ? { ...s, status: 'complete', audioUrl } : s));
+        if (!metadata.projectPath) {
+            console.error('No project path available');
+            return;
         }
-    }, [voiceoverSegments]);
+        
+        setVoiceoverSegments(prev => prev.map(s => s.id === segmentId ? { ...s, status: 'generating', error: undefined } : s));
+        const segment = voiceoverSegments.find(s => s.id === segmentId);
+        
+        if (segment) {
+            try {
+                // Generate voiceover using backend API
+                const apiService = await import('./services/apiService');
+                const response = await apiService.generateVoiceover(metadata.projectPath, segment.text, segmentId);
+                
+                if (response.success && response.filepath) {
+                    // Create audio URL from the saved file path
+                    const audioUrl = `file://${response.filepath}`;
+                    setVoiceoverSegments(prev => prev.map(s => 
+                        s.id === segmentId ? { ...s, status: 'complete', audioUrl, error: undefined } : s
+                    ));
+                } else {
+                    const errorMessage = response.error || 'Failed to generate voiceover. Please try again.';
+                    console.error('Failed to generate voiceover:', errorMessage);
+                    setVoiceoverSegments(prev => prev.map(s => 
+                        s.id === segmentId ? { ...s, status: 'error', error: errorMessage } : s
+                    ));
+                }
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Network error. Please check your connection and try again.';
+                console.error('Failed to generate voiceover:', error);
+                setVoiceoverSegments(prev => prev.map(s => 
+                    s.id === segmentId ? { ...s, status: 'error', error: errorMessage } : s
+                ));
+            }
+        }
+    }, [voiceoverSegments, metadata.projectPath]);
 
     const handlePlayAudio = useCallback(async (audioUrl: string) => {
         if (!audioContextRef.current) {
@@ -207,33 +338,79 @@ const App: React.FC = () => {
     // Beats
     const handleGenerateBeats = useCallback(async () => {
         setIsLoading(true);
-        const result = await geminiService.generateBeats(scriptData.fullScript);
-        setBeats(result);
-        setIsLoading(false);
-    }, [scriptData.fullScript]);
+        try {
+            const apiService = await import('./services/apiService');
+            const response = await apiService.generateBeats(metadata.projectPath);
+            
+            if (response.success && response.beats) {
+                setBeats(response.beats);
+            } else {
+                console.error('Failed to generate beats:', response.error);
+                alert('Failed to generate beats: ' + (response.error || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Error generating beats:', error);
+            alert('Error generating beats: ' + (error as Error).message);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [metadata.projectPath]);
 
     const handleRefineBeats = useCallback(async (instruction: string) => {
         setIsChatLoading(true);
-        const beatsAsText = beats.map(b => `${b.beat_number}: ${b.script_phrase}`).join('\n');
-        const refined = await geminiService.refineText(beatsAsText, instruction);
-        // Simple parsing, might need more robust logic
-        const newBeats: Beat[] = refined.split('\n').map(line => {
-            const parts = line.split(':');
-            return { beat_number: parts[0]?.trim(), script_phrase: parts.slice(1).join(':').trim() };
-        }).filter(b => b.beat_number && b.script_phrase);
-        setBeats(newBeats);
-        setIsChatLoading(false);
-    }, [beats]);
+        try {
+            const beatsAsText = beats.map(b => `${b.beat_number}: ${b.script_phrase}`).join('\n');
+            const refined = await geminiService.refineText(beatsAsText, instruction);
+            
+            // Simple parsing, might need more robust logic
+            const newBeats: Beat[] = refined.split('\n').map(line => {
+                const parts = line.split(':');
+                return { beat_number: parts[0]?.trim(), script_phrase: parts.slice(1).join(':').trim() };
+            }).filter(b => b.beat_number && b.script_phrase);
+            
+            setBeats(newBeats);
+            
+            // Save refined beats to backend
+            const apiService = await import('./services/apiService');
+            await apiService.saveBeats(metadata.projectPath, newBeats);
+        } catch (error) {
+            console.error('Error refining beats:', error);
+            alert('Error refining beats: ' + (error as Error).message);
+        } finally {
+            setIsChatLoading(false);
+        }
+    }, [beats, metadata.projectPath]);
 
     // Storyboard
     const handleGenerateStoryboard = useCallback(async (style: 'illustration' | 'clear' | 'consistent') => {
         setIsLoading(true);
-        const result = await geminiService.generateStoryboard(beats, style);
-        setStoryboards(prev => ({ ...prev, [style]: result }));
-        const prompts = await geminiService.extractPrompts(result);
-        setExtractedPrompts(prev => ({ ...prev, [style]: prompts }));
-        setIsLoading(false);
-    }, [beats]);
+        try {
+            const apiService = await import('./services/apiService');
+            const response = await apiService.generateStoryboard(metadata.projectPath, style);
+            
+            if (response.success && response.storyboard) {
+                setStoryboards(prev => ({ ...prev, [style]: response.storyboard! }));
+                
+                // Extract prompts from storyboard
+                const prompts = response.storyboard.map(row => ({
+                    shot_number: row.shot_number,
+                    beat_number: row.beat_number,
+                    script_phrase: row.script_phrase,
+                    transition_type: row.transition_type,
+                    ai_prompt: row.ai_prompt
+                }));
+                setExtractedPrompts(prev => ({ ...prev, [style]: prompts }));
+            } else {
+                console.error('Failed to generate storyboard:', response.error);
+                alert('Failed to generate storyboard: ' + (response.error || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Error generating storyboard:', error);
+            alert('Error generating storyboard: ' + (error as Error).message);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [metadata.projectPath]);
     
     // Images
     const handleGenerateImages = useCallback(async () => {
@@ -523,7 +700,7 @@ const App: React.FC = () => {
     // --- RENDER ---
     const renderStepContent = () => {
         switch (currentStep) {
-            case 1: return <Step1_ProjectSetup metadata={metadata} setMetadata={setMetadata} setBookContent={setBookContent} />;
+            case 1: return <Step1_ProjectSetup metadata={metadata} setMetadata={setMetadata} setBookContent={setBookContent} onCreateProject={handleCreateProject} />;
             case 2: return <Step2_Summarize summary={summary} isGenerating={isLoading} isChatLoading={isChatLoading} handleGenerateSummary={handleGenerateSummary} handleRefineSummary={handleRefineSummary} />;
             case 3: return <Step3_Scripting 
                             scriptingSubStep={scriptingSubStep}

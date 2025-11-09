@@ -14,8 +14,9 @@ export interface ScriptData {
 export interface VoiceoverSegment {
   id: number;
   text: string;
-  status: 'pending' | 'generating' | 'complete';
+  status: 'pending' | 'generating' | 'complete' | 'error';
   audioUrl?: string;
+  error?: string;
 }
 
 export interface Beat {

@@ -14,7 +14,8 @@
     "react": "^19.2.0",
     "marked": "latest",
     "@remotion/player": "^4.0.170",
-    "remotion": "^4.0.170"
+    "remotion": "^4.0.170",
+    "pdfjs-dist": "^3.11.174"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
