@@ -11,7 +11,7 @@ export async function generateText(prompt, systemInstruction = '') {
       systemInstruction
     }
   });
-  
+
   return response.text;
 }
 
@@ -24,12 +24,12 @@ function createWavBuffer(pcmData, sampleRate = 24000, channels = 1, bitsPerSampl
   const fileSize = headerSize + dataSize - 8;
 
   const buffer = Buffer.alloc(headerSize + dataSize);
-  
+
   // RIFF header
   buffer.write('RIFF', 0);
   buffer.writeUInt32LE(fileSize, 4);
   buffer.write('WAVE', 8);
-  
+
   // fmt chunk
   buffer.write('fmt ', 12);
   buffer.writeUInt32LE(16, 16); // fmt chunk size
@@ -39,12 +39,12 @@ function createWavBuffer(pcmData, sampleRate = 24000, channels = 1, bitsPerSampl
   buffer.writeUInt32LE(byteRate, 28);
   buffer.writeUInt16LE(blockAlign, 32);
   buffer.writeUInt16LE(bitsPerSample, 34);
-  
+
   // data chunk
   buffer.write('data', 36);
   buffer.writeUInt32LE(dataSize, 40);
   pcmData.copy(buffer, 44);
-  
+
   return buffer;
 }
 
@@ -70,14 +70,14 @@ export async function generateVoiceoverAudio(text) {
 
     // Convert base64 to PCM buffer
     const pcmBuffer = Buffer.from(data, 'base64');
-    
+
     // Create proper WAV file with headers
     const wavBuffer = createWavBuffer(pcmBuffer, 24000, 1, 16);
-    
+
     return wavBuffer;
   } catch (error) {
     console.error('Error generating voiceover:', error);
-    
+
     // Provide more detailed error messages
     if (error.status === 404) {
       throw new Error('TTS model not available. Please check the model name or API access.');
@@ -156,7 +156,7 @@ Example format:
 
 Script:
 ${script}`;
-    
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.0-flash-exp',
       contents: prompt,
@@ -189,13 +189,13 @@ ${script}`;
 export async function generateStoryboardStructured(beats, style) {
   try {
     const beatsText = JSON.stringify(beats, null, 2);
-    
+
     const styleDescriptions = {
       illustration: 'artistic, hand-drawn illustration style with vibrant colors and creative compositions',
       clear: 'clean, minimalist style with clear focus and simple compositions',
       consistent: 'consistent, professional style with uniform look and cohesive visual language'
     };
-    
+
     const prompt = `Create a detailed storyboard from these script beats in the "${style}" style (${styleDescriptions[style]}).
 
 For each beat, create a shot with:
@@ -212,7 +212,7 @@ Return a JSON object with a "storyboard" array.
 
 Beats:
 ${beatsText}`;
-    
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.0-flash-exp',
       contents: prompt,

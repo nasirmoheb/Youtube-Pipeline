@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backend Connection Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        h1 {
+            color: #4CAF50;
+        }
+        .test-section {
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success {
+            background: #1b5e20;
+            border: 1px solid #4CAF50;
+        }
+        .error {
+            background: #b71c1c;
+            border: 1px solid #f44336;
+        }
+        .info {
+            background: #1565c0;
+            border: 1px solid #2196F3;
+        }
+        .loading {
+            color: #FFC107;
+        }
+        pre {
+            background: #000;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Backend Connection Test</h1>
+    <p>Use this page to test if your backend is running and responding correctly.</p>
+
+    <div class="test-section">
+        <h2>Test 1: Ping Server</h2>
+        <p>Tests if the backend server is running and responding.</p>
+        <button onclick="testPing()">Run Test</button>
+        <div id="ping-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Check Generation Status</h2>
+        <p>Tests the generation status endpoint.</p>
+        <button onclick="testStatus()">Run Test</button>
+        <div id="status-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Test API Keys</h2>
+        <p>Tests if your Gemini API keys are working.</p>
+        <button onclick="testApiKeys()">Run Test</button>
+        <div id="apikeys-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 4: Start Image Generation (SSE)</h2>
+        <p>Tests the actual image generation endpoint with SSE.</p>
+        <button onclick="testGeneration()" id="gen-button">Run Test</button>
+        <button onclick="stopGeneration()" id="stop-button" disabled>Stop Test</button>
+        <div id="generation-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📋 Instructions</h2>
+        <ol>
+            <li>Make sure your backend is running: <code>cd backend && npm start</code></li>
+            <li>Run each test in order</li>
+            <li>Check the results below each test</li>
+            <li>If Test 1 fails, your backend is not running</li>
+            <li>If Test 4 shows "Connected!" but no progress, check backend console logs</li>
+        </ol>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'http://localhost:3001';
+        let eventSource = null;
+
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="result ${type}">${message}</div>`;
+        }
+
+        async function testPing() {
+            showResult('ping-result', '⏳ Testing...', 'loading');
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/ping`);
+                const data = await response.json();
+                showResult('ping-result', 
+                    `✅ SUCCESS!\n\nServer is running!\nTimestamp: ${data.timestamp}\n\nResponse:\n${JSON.stringify(data, null, 2)}`, 
+                    'success'
+                );
+            } catch (error) {
+                showResult('ping-result', 
+                    `❌ FAILED!\n\nError: ${error.message}\n\nPossible causes:\n- Backend is not running\n- Backend is on different port\n- CORS issue\n\nSolution: Start backend with 'cd backend && npm start'`, 
+                    'error'
+                );
+            }
+        }
+
+        async function testStatus() {
+            showResult('status-result', '⏳ Testing...', 'loading');
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/generation-status/test`);
+                const data = await response.json();
+                showResult('status-result', 
+                    `✅ SUCCESS!\n\nEndpoint is working!\n\nResponse:\n${JSON.stringify(data, null, 2)}`, 
+                    'success'
+                );
+            } catch (error) {
+                showResult('status-result', 
+                    `❌ FAILED!\n\nError: ${error.message}`, 
+                    'error'
+                );
+            }
+        }
+
+        async function testApiKeys() {
+            showResult('apikeys-result', '⏳ Testing API keys... This may take 30-60 seconds...', 'loading');
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/test-api-keys`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    showResult('apikeys-result', 
+                        `✅ SUCCESS!\n\nAPI keys are working!\n\nResponse:\n${JSON.stringify(data, null, 2)}`, 
+                        'success'
+                    );
+                } else {
+                    showResult('apikeys-result', 
+                        `❌ FAILED!\n\nAPI keys are not working!\n\nError: ${data.error}\n\nSolution:\n1. Go to https://makersuite.google.com/app/apikey\n2. Create new API keys\n3. Update backend/ImageGeneration/imageGenerationService.js\n4. Restart backend`, 
+                        'error'
+                    );
+                }
+            } catch (error) {
+                showResult('apikeys-result', 
+                    `❌ FAILED!\n\nError: ${error.message}`, 
+                    'error'
+                );
+            }
+        }
+
+        function testGeneration() {
+            const resultDiv = document.getElementById('generation-result');
+            resultDiv.innerHTML = '<div class="result info">⏳ Connecting to backend...</div>';
+            
+            document.getElementById('gen-button').disabled = true;
+            document.getElementById('stop-button').disabled = false;
+
+            const testPrompts = {
+                illustration: [{
+                    shot_number: 1,
+                    beat_number: "1.1",
+                    script_phrase: "Test",
+                    transition_type: "H",
+                    ai_prompt: "A simple red circle on white background"
+                }],
+                clear: [],
+                consistent: []
+            };
+
+            try {
+                eventSource = new EventSource(`${BACKEND_URL}/api/generate-images`);
+                
+                // This won't work with POST, so let's use fetch with SSE
+                fetch(`${BACKEND_URL}/api/generate-images`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        projectPath: './test-connection-project',
+                        promptsByStyle: testPrompts
+                    })
+                }).then(async response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    resultDiv.innerHTML = '<div class="result success">✅ Connected! Reading SSE stream...</div>';
+                    
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() || '';
+
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const data = JSON.parse(line.slice(6));
+                                    const timestamp = new Date().toLocaleTimeString();
+                                    
+                                    let message = `[${timestamp}] ${data.type}`;
+                                    if (data.style) message += ` - ${data.style}`;
+                                    if (data.beat_number) message += ` - Beat ${data.beat_number}`;
+                                    if (data.message) message += `: ${data.message}`;
+                                    if (data.status) message += ` - ${data.status}`;
+                                    
+                                    const currentContent = resultDiv.innerHTML;
+                                    resultDiv.innerHTML = currentContent + `<div class="result info">${message}</div>`;
+                                    
+                                    if (data.type === 'complete') {
+                                        resultDiv.innerHTML += '<div class="result success">✅ Generation complete!</div>';
+                                        document.getElementById('gen-button').disabled = false;
+                                        document.getElementById('stop-button').disabled = true;
+                                    } else if (data.type === 'error') {
+                                        resultDiv.innerHTML += `<div class="result error">❌ Error: ${data.error}</div>`;
+                                        document.getElementById('gen-button').disabled = false;
+                                        document.getElementById('stop-button').disabled = true;
+                                    }
+                                } catch (e) {
+                                    console.error('Failed to parse SSE data:', e);
+                                }
+                            }
+                        }
+                    }
+                }).catch(error => {
+                    showResult('generation-result', 
+                        `❌ FAILED!\n\nError: ${error.message}\n\nCheck:\n1. Is backend running?\n2. Check backend console for errors\n3. Check browser console (F12) for errors`, 
+                        'error'
+                    );
+                    document.getElementById('gen-button').disabled = false;
+                    document.getElementById('stop-button').disabled = true;
+                });
+
+            } catch (error) {
+                showResult('generation-result', 
+                    `❌ FAILED!\n\nError: ${error.message}`, 
+                    'error'
+                );
+                document.getElementById('gen-button').disabled = false;
+                document.getElementById('stop-button').disabled = true;
+            }
+        }
+
+        function stopGeneration() {
+            if (eventSource) {
+                eventSource.close();
+            }
+            document.getElementById('gen-button').disabled = false;
+            document.getElementById('stop-button').disabled = true;
+            showResult('generation-result', '⚠️ Test stopped by user', 'info');
+        }
+
+        // Auto-run Test 1 on page load
+        window.onload = () => {
+            testPing();
+        };
+    </script>
+</body>
+</html>

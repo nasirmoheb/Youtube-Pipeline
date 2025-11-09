@@ -52,8 +52,6 @@ const App: React.FC = () => {
     const [isChatLoading, setIsChatLoading] = useState(false);
     
     const audioContextRef = useRef<AudioContext | null>(null);
-    const generatingImagesRef = useRef<Set<string>>(new Set());
-    const [imageGenerationStatus, setImageGenerationStatus] = useState<{ [key: string]: 'pending' | 'generating' | 'complete' | 'error' }>({});
 
     // --- State Persistence Effect ---
     useEffect(() => {
@@ -415,59 +413,7 @@ const App: React.FC = () => {
         }
     }, [metadata.projectPath]);
     
-    // Images
-    const handleGenerateImages = useCallback(async () => {
-        const allPrompts: { style: string; beat_number: string; ai_prompt: string }[] = [];
-        for (const style in extractedPrompts) {
-            extractedPrompts[style].forEach(p => {
-                allPrompts.push({ style, beat_number: p.beat_number, ai_prompt: p.ai_prompt });
-            });
-        }
-
-        const initialStatus = allPrompts.reduce((acc, p) => {
-            acc[`${p.style}-${p.beat_number}`] = 'pending';
-            return acc;
-        }, {} as { [key: string]: 'pending' | 'generating' | 'complete' | 'error' });
-        setImageGenerationStatus(initialStatus);
-
-        const promises = allPrompts.map(p => async () => {
-            const key = `${p.style}-${p.beat_number}`;
-            if (generatingImagesRef.current.has(key)) return;
-            
-            generatingImagesRef.current.add(key);
-            setImageGenerationStatus(prev => ({...prev, [key]: 'generating'}));
-            try {
-                const imageUrl = await geminiService.generateImage(p.ai_prompt);
-                setImages(prev => ({
-                    ...prev,
-                    [p.style]: {
-                        ...prev[p.style],
-                        [p.beat_number]: imageUrl,
-                    }
-                }));
-                setImageGenerationStatus(prev => ({...prev, [key]: 'complete'}));
-            } catch (e) {
-                console.error(`Failed to generate image for ${key}`, e);
-                setImageGenerationStatus(prev => ({...prev, [key]: 'error'}));
-            } finally {
-                generatingImagesRef.current.delete(key);
-            }
-        });
-
-        // Run promises concurrently with a limit
-        const concurrencyLimit = 4;
-        let executing: Promise<void>[] = [];
-        for (const promiseFn of promises) {
-            const p = promiseFn().catch(e => console.error(e));
-            executing.push(p);
-            if (executing.length >= concurrencyLimit) {
-                await Promise.race(executing);
-                executing = executing.filter(executedP => !executedP.then);
-            }
-        }
-        await Promise.all(executing);
-        
-    }, [extractedPrompts]);
+    // Images - Now handled by backend via Step8_Images component
 
     const handleImageSelection = (beat_number: string, style: 'illustration' | 'clear' | 'consistent', url: string) => {
         setImageSelection(prev => ({
@@ -723,7 +669,7 @@ const App: React.FC = () => {
             case 5: return <Step5_Beats beats={beats} isGenerating={isLoading} isChatLoading={isChatLoading} handleGenerateBeats={handleGenerateBeats} handleRefineBeats={handleRefineBeats} />;
             case 6: return <Step6_Storyboard storyboards={storyboards} isGenerating={isLoading} handleGenerateStoryboard={handleGenerateStoryboard} />;
             case 7: return <Step7_Prompts extractedPrompts={extractedPrompts} />;
-            case 8: return <Step8_Images images={images} extractedPrompts={extractedPrompts} handleGenerateImages={handleGenerateImages} imageGenerationStatus={imageGenerationStatus} />;
+            case 8: return <Step8_Images extractedPrompts={extractedPrompts} projectPath={metadata.projectPath} />;
             case 9: return <Step9_Select beats={beats} images={images} imageSelection={imageSelection} handleImageSelection={handleImageSelection} flaggedImages={flaggedImages} handleImageFlagToggle={handleImageFlagToggle} />;
             case 10: return <Step10_SvgConvert imageSelection={imageSelection} svgConversionStatus={svgConversionStatus} handleConvertAllToSvg={handleConvertAllToSvg} />;
             case 11: return <Step11_Transcription transcriptionData={transcriptionData} isGenerating={isLoading} handleGenerateTranscription={handleGenerateTranscription} setTranscriptionData={setTranscriptionData} />;
