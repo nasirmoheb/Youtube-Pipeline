@@ -400,6 +400,9 @@ const App: React.FC = () => {
                     ai_prompt: row.ai_prompt
                 }));
                 setExtractedPrompts(prev => ({ ...prev, [style]: prompts }));
+                
+                // Save prompts to backend
+                await apiService.savePrompts(metadata.projectPath, style, prompts);
             } else {
                 console.error('Failed to generate storyboard:', response.error);
                 alert('Failed to generate storyboard: ' + (response.error || 'Unknown error'));
