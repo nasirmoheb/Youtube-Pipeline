@@ -82,9 +82,15 @@ async function generateImageForBeat(projectPath, style, prompt, onProgress) {
         fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    const imageName = `Beat_${beat_number}.png`;
+    // Clean beat_number: remove "Beat" prefix if present, handle spaces and underscores
+    // Examples: "Beat 1" -> "1", "Beat_1.1" -> "1.1", "1.2" -> "1.2"
+    const cleanBeatNumber = String(beat_number)
+        .replace(/^Beat[\s_]+/i, '')  // Remove "Beat " or "Beat_" prefix
+        .trim();
+
+    const imageName = `Beat_${cleanBeatNumber}.png`;
     const imagePath = path.join(outputDir, imageName);
-    console.log(`[${style}] Target image path: ${imagePath}`);
+    console.log(`[${style}] Original beat_number: "${beat_number}", cleaned: "${cleanBeatNumber}"`);
 
     // Check if already exists
     if (fs.existsSync(imagePath)) {

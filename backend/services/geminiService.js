@@ -5,7 +5,7 @@ const ai = new GoogleGenAI({ apiKey: config.geminiApiKey });
 
 export async function generateText(prompt, systemInstruction = '') {
   const response = await ai.models.generateContent({
-    model: 'gemini-2.0-flash-exp',
+    model: 'gemini-2.5-flash',
     contents: prompt,
     config: {
       systemInstruction
@@ -158,7 +158,7 @@ Script:
 ${script}`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
         systemInstruction: 'You are a script segmentation expert. Split scripts into ~1 minute segments (150-200 words each) for voiceover recording. Each segment should be a complete, cohesive unit.',
@@ -214,7 +214,7 @@ Beats:
 ${beatsText}`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
         systemInstruction: `You are a professional storyboard artist. Create detailed, visual storyboards optimized for ${style} style. Each shot should have a compelling visual description.`,

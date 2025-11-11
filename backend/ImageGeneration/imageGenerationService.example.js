@@ -16,15 +16,15 @@ import * as path from "node:path";
 // Each style should have 2-3 keys for optimal performance
 const API_KEYS = {
   illustration: [
-    "YOUR_GEMINI_API_KEY_1",  // Replace with actual key
+    "AIzaSyCvNyRcEYUheM2NTwyBisEduBznhJlEhC0",  // Replace with actual key
     "YOUR_GEMINI_API_KEY_2",  // Replace with actual key
   ],
   clear: [
-    "YOUR_GEMINI_API_KEY_3",  // Replace with actual key
+    "AIzaSyCvNyRcEYUheM2NTwyBisEduBznhJlEhC0",  // Replace with actual key
     "YOUR_GEMINI_API_KEY_4",  // Replace with actual key
   ],
   consistent: [
-    "YOUR_GEMINI_API_KEY_5",  // Replace with actual key
+    "AIzaSyCvNyRcEYUheM2NTwyBisEduBznhJlEhC0",  // Replace with actual key
     "YOUR_GEMINI_API_KEY_6",  // Replace with actual key
   ]
 };

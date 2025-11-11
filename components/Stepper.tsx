@@ -24,7 +24,7 @@ const Stepper: React.FC<StepperProps> = ({ currentStep, steps, onStepClick, high
           };
 
           return (
-            <li key={step} className={`relative ${stepIdx !== steps.length - 1 ? 'pr-8 sm:pr-20' : ''}`}>
+            <li key={step} className={`relative ${stepIdx !== steps.length - 1 ? 'pr-8 sm:pr-16' : ''}`}>
               {isCompleted ? (
                 <>
                   <div className="absolute inset-0 flex items-center" aria-hidden="true">
@@ -68,8 +68,8 @@ const Stepper: React.FC<StepperProps> = ({ currentStep, steps, onStepClick, high
                   </button>
                 </>
               )}
-               <div className="absolute -bottom-7 text-center w-max -left-1/2 ml-4">
-                   <span className={`text-xs ${currentStep >= stepIdx + 1 ? 'text-indigo-400' : 'text-gray-400'}`}>{step}</span>
+              <div className="absolute -bottom-7 text-center w-max -left-1/2 ml-8">
+                <span className={`text-xs ${currentStep >= stepIdx + 1 ? 'text-indigo-400' : 'text-gray-400'}`}>{step}</span>
               </div>
             </li>
           );

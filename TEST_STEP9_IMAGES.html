@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Step 9 Image Debug</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #1a1a1a;
+            color: #fff;
+            padding: 20px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 10px 0;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        pre {
+            background: #000;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 8px;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin: 10px 0;
+            background: #333;
+            border: 1px solid #555;
+            color: #fff;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Step 9 Image Debug Tool</h1>
+    
+    <div class="section">
+        <h2>1. Enter Project Path</h2>
+        <input type="text" id="projectPath" placeholder="D:\Projects\Youtube-Pipeline\projects\your-project" />
+        <button onclick="saveProjectPath()">Save Path</button>
+    </div>
+
+    <div class="section">
+        <h2>2. Debug File Structure</h2>
+        <button onclick="debugImages()">Check File Structure</button>
+        <div id="debug-result"></div>
+    </div>
+
+    <div class="section">
+        <h2>3. Get Generated Images</h2>
+        <button onclick="getImages()">Load Images</button>
+        <div id="images-result"></div>
+    </div>
+
+    <div class="section">
+        <h2>4. Test Image Display</h2>
+        <div id="image-display"></div>
+    </div>
+
+    <script>
+        let projectPath = localStorage.getItem('testProjectPath') || '';
+        document.getElementById('projectPath').value = projectPath;
+
+        function saveProjectPath() {
+            projectPath = document.getElementById('projectPath').value;
+            localStorage.setItem('testProjectPath', projectPath);
+            alert('Project path saved: ' + projectPath);
+        }
+
+        async function debugImages() {
+            if (!projectPath) {
+                alert('Please enter project path first!');
+                return;
+            }
+
+            const resultDiv = document.getElementById('debug-result');
+            resultDiv.innerHTML = '<p>⏳ Checking file structure... (check backend console)</p>';
+
+            try {
+                const response = await fetch('http://localhost:3001/api/debug-images', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ projectPath })
+                });
+
+                const data = await response.json();
+                resultDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>
+                    <p>✓ Check backend console for detailed file structure</p>`;
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function getImages() {
+            if (!projectPath) {
+                alert('Please enter project path first!');
+                return;
+            }
+
+            const resultDiv = document.getElementById('images-result');
+            resultDiv.innerHTML = '<p>⏳ Loading images...</p>';
+
+            try {
+                const response = await fetch('http://localhost:3001/api/get-generated-images', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ projectPath })
+                });
+
+                const data = await response.json();
+                console.log('Images data:', data);
+
+                if (data.success) {
+                    let html = '<h3>✓ Images Loaded</h3>';
+                    
+                    for (const style of ['illustration', 'clear', 'consistent']) {
+                        const styleImages = data.images[style] || {};
+                        const beatNumbers = Object.keys(styleImages);
+                        
+                        html += `<h4>${style}: ${beatNumbers.length} images</h4>`;
+                        html += `<p>Beat numbers: ${beatNumbers.join(', ')}</p>`;
+                        
+                        // Show first 3 images
+                        for (const beat of beatNumbers.slice(0, 3)) {
+                            const relativePath = styleImages[beat];
+                            const fullPath = `file://${projectPath}/${relativePath.replace(/\\/g, '/')}`;
+                            html += `<div style="margin: 10px 0;">
+                                <p>Beat ${beat}: ${relativePath}</p>
+                                <img src="${fullPath}" style="max-width: 200px; border: 1px solid #555;" 
+                                     onerror="this.style.border='2px solid red'; this.alt='Failed to load'"/>
+                            </div>`;
+                        }
+                    }
+                    
+                    resultDiv.innerHTML = html;
+                    
+                    // Also display in image section
+                    displayTestImages(data.images);
+                } else {
+                    resultDiv.innerHTML = `<p style="color: red;">❌ Error: ${data.error}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        function displayTestImages(images) {
+            const displayDiv = document.getElementById('image-display');
+            let html = '<h3>Sample Images</h3>';
+            
+            const styles = ['illustration', 'clear', 'consistent'];
+            const firstBeat = Object.keys(images.illustration || {})[0];
+            
+            if (!firstBeat) {
+                displayDiv.innerHTML = '<p>No images found</p>';
+                return;
+            }
+            
+            html += `<p>Showing beat: ${firstBeat}</p>`;
+            html += '<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">';
+            
+            for (const style of styles) {
+                const relativePath = images[style]?.[firstBeat];
+                if (relativePath) {
+                    const fullPath = `file://${projectPath}/${relativePath.replace(/\\/g, '/')}`;
+                    html += `<div>
+                        <h4>${style}</h4>
+                        <img src="${fullPath}" style="width: 100%; border: 1px solid #555;" 
+                             onerror="this.style.border='2px solid red'; this.alt='Failed: ${fullPath}'"/>
+                        <p style="font-size: 10px; word-break: break-all;">${fullPath}</p>
+                    </div>`;
+                } else {
+                    html += `<div><h4>${style}</h4><p>No image</p></div>`;
+                }
+            }
+            
+            html += '</div>';
+            displayDiv.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

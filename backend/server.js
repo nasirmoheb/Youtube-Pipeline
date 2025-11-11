@@ -27,9 +27,9 @@ app.get('/api/ping', (req, res) => {
 
 app.use('/api', projectRouter);
 app.use('/api', contentRouter);
-app.use('/api', imageRouter);
 app.use('/api', uploadRouter);
 app.use('/api', imageGenerationRouter);
+app.use('/api', imageRouter);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

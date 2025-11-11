@@ -670,7 +670,7 @@ const App: React.FC = () => {
             case 6: return <Step6_Storyboard storyboards={storyboards} isGenerating={isLoading} handleGenerateStoryboard={handleGenerateStoryboard} />;
             case 7: return <Step7_Prompts extractedPrompts={extractedPrompts} />;
             case 8: return <Step8_Images extractedPrompts={extractedPrompts} projectPath={metadata.projectPath} />;
-            case 9: return <Step9_Select beats={beats} images={images} imageSelection={imageSelection} handleImageSelection={handleImageSelection} flaggedImages={flaggedImages} handleImageFlagToggle={handleImageFlagToggle} />;
+            case 9: return <Step9_Select beats={beats} projectPath={metadata.projectPath} />;
             case 10: return <Step10_SvgConvert imageSelection={imageSelection} svgConversionStatus={svgConversionStatus} handleConvertAllToSvg={handleConvertAllToSvg} />;
             case 11: return <Step11_Transcription transcriptionData={transcriptionData} isGenerating={isLoading} handleGenerateTranscription={handleGenerateTranscription} setTranscriptionData={setTranscriptionData} />;
             case 12: return <Step12_PreEditScan preEditScanData={preEditScanData} />;
